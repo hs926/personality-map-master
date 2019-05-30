@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<!-- globe inspired from http://bl.ocks.org/KoGor/5994804 -->
+<!-- pentagon inspired from https://bl.ocks.org/curran/8b4b7791fc25cfd2c459e74f3d0423f2 -->
+
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Earth globe</title>
+<script src="http://d3js.org/d3.v4.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="http://d3js.org/queue.v1.min.js"></script>
+<script src="https://d3js.org/d3-hexbin.v0.2.min.js"></script>
+<link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet">
+
+</head>
+<style type="text/css">
+ /* @import url('https://fonts.googleapis.com/css?family=Roboto+Condensed'); */
+body{
+  font-family: "Montserrat",sans-serif;
+}
+#title{
+  margin-left:380px;
+  margin-bottom:-80px;
+  font-size: 26px;
+  font-family: "Montserrat",sans-serif;
+}
+.title2{
+  margin-left:320px;
+  margin-bottom:-80px;
+  margin-top:90px;
+  font-size: 12px;
+  font-family: "Montserrat", sans-serif;;
+  opacity:0.5;
+}
+#Click1, #Click2, #Click3{
+  width:100px;
+  height:40px;
+  stroke:white;
+  background-color: #aed6f1;
+  border:0px;
+  font-size: 18px;
+  font-weight:100;
+  float:left;
+}
+#Click1{
+margin-left: 80px;
+}
+#Click2{
+margin-left: 110px;
+}
+#Click3{
+margin-left: 130px;
+}
+#Click1:hover,#Click2:hover,#Click3:hover{
+  background-color:#f7ab33;
+  font-weight:100;
+}
+.water {
+  fill: #076db6;
+  opacity: 0.1;
+}
+
+.land {
+  fill: #abb2b9;
+  stroke: #FFF;
+  stroke-width: 0.7px;
+  opacity:0.5;
+}
+
+.land:hover {
+  fill: #076db6;
+  stroke-width: 1px;
+}
+
+.focused {
+  fill: #EBDAAA;
+}
+
+hr {
+    display: block;
+    margin-top: 50px;
+    margin-bottom: 0.5em;
+    margin-left: 0px;
+    margin-right: auto;
+    border-style: inset;
+    width:1100px;
+    border-width: 0.5px;
+    color:#72B6DE;
+}
+
+.topic{
+  font-family: "Montserrat",sans-serif;
+  padding-left: 25px;
+  font-size:14px;
+}
+
+.topic2{
+  font-family: "Montserrat",sans-serif;
+  padding-left: 25px;
+  font-size:12px;
+  opacity:0.5;
+}
+
+.message{
+  font-family: "Montserrat",sans-serif;
+  font-size:12px;
+  opacity:0.5;
+  padding-left: 25px;
+}
+
+.countryTooltip {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+  padding: 5px;
+  text-align: left;
+  color: #076db6;
+  font-size: 20px;
+  font-family: "Montserrat",sans-serif;
+}
+.trait{
+  /* border:1px solid #ccc; */
+  float:left;
+  width:200px;
+  /* height:200px; */
+  margin:10px 10px 10px 10px;
+}
+.Variant {
+  font-weight: 1000;
+  color: #076db6;
+  opacity:1;
+}
+</style>
+<body>
+  <br/>
+  <br/>
+  <p id="title"> Countries' Personalities</p>
+  <p class="title2"> Interested in the age and country difference of <span class="Variant"><b>Personality</b></span>?<br>
+  --> Click on a <span class="Variant">country</span> and a
+  <span class="Variant">portrait</span> to get the mean personality score </br>
+  for that segment. You can also scroll the earth globe!<br>
+    <br>Data from openpsychometrics.org.
+    Presented by <a href="https://github.coecis.cornell.edu/jhl298/personality_map">
+      team</a>(a cornell github repo)
+  </p>
+  <script>
+  // top portion of people
+
+  var curr_country,
+    curr_age = "13-20",
+    country_pers, focusedCountry;
+
+  var svg = d3.select("body").append("svg")
+            .attr("width",1000)
+            .attr("height",200)
+
+
+</script>
+
+<div id="polygon">
+<script>
+  var width = 1500,
+  height = 500,
+  sens = 0.25,
+  focused;
+</script>
+
+</div>
+<script>
+  //Setting projection
+
+  var projection = d3.geoOrthographic()
+  .scale(245)
+  .rotate([0, 0])
+  .translate([width / 2, height / 2])
+  .clipAngle(90);
+
+  var path = d3.geoPath()
+  .projection(projection);
+
+  //SVG container
+
+  var svg = d3.select("body").append("svg")
+  .attr("width", width)
+  .attr("height", height);
+
+  //Adding water
+
+  svg.append("path")
+  .datum({type: "Sphere"})
+  .attr("class", "water")
+  .attr("d", path)
+  .call(d3.drag()
+  .subject(function() { var r = projection.rotate(); return {x: r[0] / sens, y: -r[1] / sens}; })
+  .on("drag", function() {
+    clearInterval(autoRotate);
+    var rotate = projection.rotate();
+    projection.rotate([d3.event.x * sens, -d3.event.y * sens, rotate[2]]);
+    svg.selectAll("path.land").attr("d", path);
+    svg.selectAll(".focused").classed("focused", focused = false);
+  }));
+
+  var countryTooltip = d3.select("body").append("div").attr("class", "countryTooltip");
+  var countryList = [];
+
+
+
+
+  d3.queue()
+  .defer(d3.json, "world-110m.json")
+  .defer(d3.tsv, "world-110m-country-names.tsv")
+  .defer(d3.csv, "age_country.csv")
+  .await(ready);
+
+  //Main function
+
+  function ready(error, world, countryData,countryPersonality) {
+
+  //button onlick overlay the portraits
+
+ d3.select("svg").append("image")
+      .attr("class","people_image")
+      .attr("xlink:href","image1.svg")
+      .attr("width",70)
+      .attr("height",70)
+      .attr("transform","translate(550,120)")
+      .style("cursor","pointer")
+      .on("click", function(d){
+        d3.select("svg").selectAll("#highlight").remove()
+        d3.select('svg').append("circle")
+          .attr("id","highlight")
+          .attr("cx",585)
+          .attr("cy",150)
+          .attr("r",30)
+          .attr("fill","#076db6")
+          .attr("opacity",.3)
+        updateData("13-20")
+        curr_age="13-20"
+        d3.event.stopPropagation();
+
+      })
+
+  d3.select("svg").append("image")
+      .attr("id","adult")
+      .attr("xlink:href","image2.svg")
+      .attr("width",70)
+      .attr("height",70)
+      .attr("transform","translate(700,120)")
+      .style("cursor","pointer")
+      .on("click", function(d){
+        d3.select("svg").selectAll("#highlight").remove()
+        d3.select('svg').append("circle")
+          .attr("id","highlight")
+          .attr("cx",735)
+          .attr("cy",150)
+          .attr("r",30)
+          .attr("fill","#076db6")
+          .attr("opacity",.3)
+        updateData("21-30")
+        curr_age="21-30"
+        d3.event.stopPropagation();
+
+      })
+
+  d3.select("svg").append("image")
+      .attr("id","old")
+      .attr("xlink:href","image3.svg")
+      .attr("width",70)
+      .attr("height",70)
+      .attr("transform","translate(850,120)")
+      .style("cursor","pointer")
+      .on("click", function(d){
+        d3.select("svg").selectAll("#highlight").remove()
+        d3.select('svg').append("circle")
+          .attr("id","highlight")
+          .attr("cx",885)
+          .attr("cy",150)
+          .attr("r",30)
+          .attr("fill","#076db6")
+          .attr("opacity",.3)
+        updateData("31-100")
+        curr_age="31-100"
+        d3.event.stopPropagation();
+      })
+
+
+
+
+    var countryById = {};
+
+    country_pers = countryPersonality;
+
+    country_pers.forEach(function(d){
+      if (d.country_code.length==1){
+        d.country_code = "00" + d.country_code
+      }
+      else if (d.country_code.length==2){
+        d.country_code = "0" + d.country_code
+      }
+    })
+
+    var countries = topojson.feature(world, world.objects.countries).features;
+
+    //Adding countries to select
+
+    countryData.forEach(function(d) {
+      countryById[d.id] = d.name;
+      var option = Object;
+      option.text = d.name
+      option.value = d.id
+      countryList.push(option)
+    });
+
+    //Drawing countries on the globe
+
+    var world = svg.selectAll("path.land")
+    .data(countries)
+    .enter().append("path")
+    .attr("class", "land")
+    .attr("d", path)
+
+    //Drag event
+
+    .call(d3.drag()
+      .subject(function() { var r = projection.rotate(); return {x: r[0] / sens, y: -r[1] / sens}; })
+      .on("drag", function() {
+        var rotate = projection.rotate();
+        projection.rotate([d3.event.x * sens, -d3.event.y * sens, rotate[2]]);
+        svg.selectAll("path.land").attr("d", path);
+        svg.selectAll(".focused").classed("focused", focused = false);
+      }))
+
+    //Mouse events
+
+    .on("mouseover", function(d) {
+      countryTooltip.text(countryById[d.id])
+      .style("left", (d3.event.pageX + 7) + "px")
+      .style("top", (d3.event.pageY - 15) + "px")
+      .style("display", "block")
+      .style("opacity", 1);
+    })
+    .on("mouseout", function(d) {
+      countryTooltip.style("opacity", 0)
+      .style("display", "none");
+    })
+    .on("mousemove", function(d) {
+      countryTooltip.style("left", (d3.event.pageX + 7) + "px")
+      .style("top", (d3.event.pageY - 15) + "px");
+    })
+    .on("click", function(d){
+
+      var rotate = projection.rotate();
+      focusedCountry = country2(countries,d.id);
+      var p = d3.geoCentroid(focusedCountry);
+      curr_country = findCountry(focusedCountry.id,curr_age);
+       clearInterval(autoRotate);
+
+
+      svg.selectAll(".focused").classed("focused", focused = false);
+
+    //Globe rotating
+
+    (function transition() {
+      d3.transition()
+      .duration(2500)
+      .tween("rotate", function() {
+        var r = d3.interpolate(projection.rotate(), [-p[0], -p[1]]);
+        return function(t) {
+          projection.rotate(r(t));
+          svg.selectAll("path").attr("d", path)
+          .classed("focused", function(d, i) { return d.id == focusedCountry.id ? focused = d : false; });
+        };
+      })
+      })();
+
+        if (curr_country ==null){
+          d3.select("#personality_pentagon").transition().duration(1500)
+            .attr("points", scale1x(10) +"," + scale1y(10) + " " +
+                scale2x(10) +"," + scale2y(10) + " " +
+                scale3x(10) +"," + scale3y(10) + " " +
+                scale4x(10) +"," + scale4y(10) + " " +
+                scale5x(10) +"," + scale5y(10))
+         .style("fill", "black")
+         .style("stroke", "black")
+         .style("strokeWidth", "10px")
+         .style("opacity",.5)
+
+         d3.select("#num_surveys")
+            .text("based on 0 surveys")
+            .attr("text-anchor","start")
+
+        d3.select("#e_score").transition(1000)
+            .text(0)
+        d3.select("#n_score").transition(1000)
+            .text(0)
+        d3.select("#a_score").transition(1000)
+            .text(0)
+        d3.select("#c_score").transition(1000)
+            .text(0)
+        d3.select("#o_score").transition(1000)
+            .text(0)
+
+
+      }
+      else {
+        d3.select("#personality_pentagon").transition().duration(1500)
+            .attr("points", scale1x(curr_country.meanE) +"," + scale1y(curr_country.meanE) + " " +
+                scale2x(curr_country.meanN) +"," + scale2y(curr_country.meanN) + " " +
+                scale3x(curr_country.meanA) +"," + scale3y(curr_country.meanA) + " " +
+                scale4x(curr_country.meanC) +"," + scale4y(curr_country.meanC) + " " +
+                scale5x(curr_country.meanO) +"," + scale5y(curr_country.meanO))
+         .style("fill", "#076db6")
+         .style("stroke", "white")
+         .style("strokeWidth", "10px")
+
+         d3.select("#num_surveys")
+            .text("based on " + curr_country.count + " surveys")
+
+        d3.select("#e_score").transition(1000)
+            .text(Math.round(curr_country.meanE))
+        d3.select("#n_score").transition(1000)
+            .text(Math.round(curr_country.meanN))
+        d3.select("#a_score").transition(1000)
+            .text(Math.round(curr_country.meanA))
+        d3.select("#c_score").transition(1000)
+            .text(Math.round(curr_country.meanC))
+        d3.select("#o_score").transition(1000)
+            .text(Math.round(curr_country.meanO))
+
+          }
+        });
+
+        var scrollSpeed = 50;
+        var current = 0;
+
+        function bgscroll(){
+          current += 1;
+          projection.rotate([lamda(current), 0]);
+          svg.selectAll("path").attr("d", path);
+          }
+
+        autoRotate = setInterval(bgscroll, scrollSpeed);
+          //Country focus on option select
+          d3.select("select").on("change", function() {
+            var rotate = projection.rotate(),
+            focusedCountry = country(countries, this),
+            p = d3.geoCentroid(focusedCountry);
+            curr_country = findCountry(focusedCountry.id,curr_age)
+            svg.selectAll(".focused").classed("focused", focused = false);
+
+
+    //Globe rotating
+
+    (function transition() {
+      d3.transition()
+      .duration(2500)
+      .tween("rotate", function() {
+        var r = d3.interpolate(projection.rotate(), [-p[0], -p[1]]);
+        return function(t) {
+          projection.rotate(r(t));
+          svg.selectAll("path").attr("d", path)
+          .classed("focused", function(d, i) { return d.id == focusedCountry.id ? focused = d : false; });
+        };
+      })
+      })();
+
+    if (curr_country ==null){
+      d3.select("#personality_pentagon").transition().duration(1500)
+        .attr("points", scale1x(10) + "," + scale1y(10) + " " +
+            scale2x(10) +"," + scale2y(10) + " " +
+            scale3x(10) +"," + scale3y(10) + " " +
+            scale4x(10) +"," + scale4y(10) + " " +
+            scale5x(10) +"," + scale5y(10))
+     .style("fill", "black")
+     .style("stroke", "black")
+     .style("strokeWidth", "10px")
+     .style("opacity",.5)
+
+     d3.select("#num_surveys")
+          .text("based on 0 surveys")
+          .attr("text-anchor","start")
+
+      d3.select("#e_score").transition(1000)
+            .text(0)
+        d3.select("#n_score").transition(1000)
+            .text(0)
+        d3.select("#a_score").transition(1000)
+            .text(0)
+        d3.select("#c_score").transition(1000)
+            .text(0)
+        d3.select("#o_score").transition(1000)
+            .text(0)
+
+
+    }
+    else {
+
+        d3.select("#personality_pentagon").transition().duration(1500)
+            .attr("points", scale1x(curr_country.meanE) +"," + scale1y(curr_country.meanE) + " " +
+                scale2x(curr_country.meanN) +"," + scale2y(curr_country.meanN) + " " +
+                scale3x(curr_country.meanA) +"," + scale3y(curr_country.meanA) + " " +
+                scale4x(curr_country.meanC) +"," + scale4y(curr_country.meanC) + " " +
+                scale5x(curr_country.meanO) +"," + scale5y(curr_country.meanO))
+         .style("fill", "#076db6")
+         .style("stroke", "white")
+         .style("strokeWidth", "10px")
+
+        d3.select("#num_surveys")
+            .text("based on " + curr_country.count + " surveys")
+            .attr("text-anchor","start")
+
+        d3.select("#e_score").transition(1000)
+            .text(Math.round(curr_country.meanE))
+        d3.select("#n_score").transition(1000)
+            .text(Math.round(curr_country.meanN))
+        d3.select("#a_score").transition(1000)
+            .text(Math.round(curr_country.meanA))
+        d3.select("#c_score").transition(1000)
+            .text(Math.round(curr_country.meanC))
+        d3.select("#o_score").transition(1000)
+            .text(Math.round(curr_country.meanO))
+
+
+        }
+    });
+
+    function country(cnt, sel) {
+      for(var i = 0, l = cnt.length; i < l; i++) {
+        if(cnt[i].id == sel.value) {return cnt[i];}
+      }
+    };
+
+    function country2(cnt, sel) {
+      for(var i = 0, l = cnt.length; i < l; i++) {
+        if(cnt[i].id == sel) {return cnt[i];}
+      }
+    };
+
+    function findCountry(code,age){
+      for (var i =0, l = country_pers.length; i<l; i++){
+        if(country_pers[i].country_code == code && country_pers[i].ageGroup==age) {
+          return country_pers[i];
+        }
+      }
+    };
+
+
+  function updateData(ageGroup){
+
+      curr_country = findCountry(focusedCountry.id,ageGroup);
+      if (curr_country !=null){
+        d3.select("#personality_pentagon").transition().duration(1500)
+            .attr("points", scale1x(curr_country.meanE) +"," + scale1y(curr_country.meanE) + " " +
+                scale2x(curr_country.meanN) +"," + scale2y(curr_country.meanN) + " " +
+                scale3x(curr_country.meanA) +"," + scale3y(curr_country.meanA) + " " +
+                scale4x(curr_country.meanC) +"," + scale4y(curr_country.meanC) + " " +
+                scale5x(curr_country.meanO) +"," + scale5y(curr_country.meanO))
+         .style("fill", "#076db6")
+         .style("stroke", "white")
+         .style("strokeWidth", "10px")
+
+        d3.select("#num_surveys")
+              .text("based on " + curr_country.count + " surveys")
+              .attr("text-anchor","start")
+
+        d3.select("#e_score").transition(1000)
+            .text(Math.round(curr_country.meanE))
+        d3.select("#n_score").transition(1000)
+            .text(Math.round(curr_country.meanN))
+        d3.select("#a_score").transition(1000)
+            .text(Math.round(curr_country.meanA))
+        d3.select("#c_score").transition(1000)
+            .text(Math.round(curr_country.meanC))
+        d3.select("#o_score").transition(1000)
+            .text(Math.round(curr_country.meanO))
+
+      }
+    }
+
+  };
+
+//personality pentagon
+
+var canvas = svg.append("svg").attr("width",1000).attr("height",1000)
+
+var pentaScale=1.5
+
+
+canvas.append("polygon")
+   .attr("points", (245*pentaScale)+"," + (119*pentaScale) + " "+ (208*pentaScale)+ "," +
+                    (230*pentaScale) +" " + (91*pentaScale) + "," + (230*pentaScale) + " " +
+                      (54*pentaScale) + "," + (119*pentaScale) + " " +(150*pentaScale) + "," +
+                      (50*pentaScale)+"," + (245*pentaScale) + "," +(119*pentaScale))
+   .style("fill", "none")
+   .style("stroke", "#076db6")
+   .style("strokeWidth", "10px")
+   .style("opacity",0.2)
+   .attr("transform","translate(" + (10*pentaScale) + "," + (20*pentaScale) + ")" )
+
+
+canvas.append("text")
+   .attr("x",155*pentaScale)
+   .attr("y",55*pentaScale)
+   .text("(E)")
+   .attr("font-family","Montserrat")
+   .attr("font-size","12")
+   .style("fill","#076db6")
+   .attr("opacity",0.5)
+
+   canvas.append("text")
+      .attr("x",135*pentaScale)
+      .attr("y",65*pentaScale)
+      .text("Extroversion")
+      .attr("font-family","Montserrat")
+      .attr("font-size","12")
+      .style("fill","#076db6")
+      .attr("opacity",0.5)
+
+canvas.append("text")
+   .attr("x",273*pentaScale)
+   .attr("y",140*pentaScale)
+   .text("(N)")
+   .attr("font-family","Montserrat")
+   .attr("font-size","12")
+   .attr("opacity",0.5)
+    .style("fill","#076db6")
+
+    canvas.append("text")
+       .attr("x",255*pentaScale)
+       .attr("y",150*pentaScale)
+       .text("Neuroticism")
+       .attr("font-family","Montserrat")
+       .attr("font-size","12")
+       .attr("opacity",0.5)
+        .style("fill","#076db6")
+
+canvas.append("text")
+   .attr("x",220*pentaScale)
+   .attr("y",260*pentaScale)
+   .text("(A)")
+   .attr("font-family","Montserrat")
+   .attr("font-size","12")
+   .style("fill","#076db6")
+   .attr("opacity",0.5)
+
+   canvas.append("text")
+      .attr("x",200*pentaScale)
+      .attr("y",270*pentaScale)
+      .text("Agreeableness")
+      .attr("font-family","Montserrat")
+      .attr("font-size","12")
+      .style("fill","#076db6")
+      .attr("opacity",0.5)
+
+
+canvas.append("text")
+   .attr("x",90*pentaScale)
+   .attr("y",260*pentaScale)
+   .text("(C)")
+   .attr("font-family","Montserrat")
+   .attr("font-size","12")
+   .style("fill","#076db6")
+   .attr("opacity",0.5)
+
+   canvas.append("text")
+      .attr("x",60*pentaScale)
+      .attr("y",270*pentaScale)
+      .text("Conscientiousness")
+      .attr("font-family","Montserrat")
+      .attr("font-size","12")
+      .style("fill","#076db6")
+      .attr("opacity",0.5)
+
+canvas.append("text")
+   .attr("x",35*pentaScale)
+   .attr("y",140*pentaScale)
+   .text("(O)")
+   .attr("font-family","Montserrat")
+   .attr("font-size","12")
+   .style("fill","#076db6")
+   .attr("opacity",0.5)
+
+   canvas.append("text")
+      .attr("x",20*pentaScale)
+      .attr("y",150*pentaScale)
+      .text("Openness")
+      .attr("font-family","Montserrat")
+      .attr("font-size","12")
+      .style("fill","#076db6")
+      .attr("opacity",0.5)
+
+canvas.append("text")
+    .attr("id","num_surveys")
+    .attr("x",120*pentaScale)
+    .attr("y",300*pentaScale)
+    .attr("font-family","Montserrat")
+    .attr("text-anchor","start")
+    .attr("font-size","12")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+
+canvas.append("text")
+    .attr("id","variable_range")
+    .attr("x",100*pentaScale)
+    .attr("y",315*pentaScale)
+    .attr("font-family","Montserrat")
+    .attr("font-size","12")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+    .text("value ranges for every trait: 0 ~ 40")
+
+canvas.append("text")
+    .attr("id","e_score")
+    .attr("x",158*pentaScale)
+    .attr("y",35*pentaScale)
+    .attr("text-anchor","start")
+    .attr("font-size","15")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+    .text("0")
+
+canvas.append("text")
+    .attr("id","n_score")
+    .attr("x",277*pentaScale)
+    .attr("y",120*pentaScale)
+    .attr("text-anchor","start")
+    .attr("font-size","15")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+    .text("0")
+
+canvas.append("text")
+    .attr("id","a_score")
+    .attr("x",220*pentaScale)
+    .attr("y",290*pentaScale)
+    .attr("text-anchor","start")
+    .attr("font-size","15")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+    .text("0")
+
+canvas.append("text")
+    .attr("id","c_score")
+    .attr("x",90*pentaScale)
+    .attr("y",290*pentaScale)
+    .attr("text-anchor","start")
+    .attr("font-size","15")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+    .text("0")
+
+canvas.append("text")
+    .attr("id","o_score")
+    .attr("x",38*pentaScale)
+    .attr("y",120*pentaScale)
+    .attr("text-anchor","start")
+    .attr("font-size","15")
+    .style("fill","#076db6")
+    .attr("opacity",0.5)
+    .text("0")
+
+var pt1 = 10,
+    pt2 = 10,
+    pt3 = 10,
+    pt4 = 10,
+    pt5 = 10,
+    cx = 160,
+    cy = 170
+
+var scale1x = d3.scaleLinear().domain([0,40]).range([cx*pentaScale,cx*pentaScale])
+var scale1y = d3.scaleLinear().domain([0,40]).range([cy*pentaScale,cy*pentaScale-95*pentaScale])
+var scale2x = d3.scaleLinear().domain([0,40]).range([cx*pentaScale,cx*pentaScale+95*pentaScale])
+var scale2y = d3.scaleLinear().domain([0,40]).range([cy*pentaScale,cy*pentaScale-26*pentaScale])
+var scale3x = d3.scaleLinear().domain([0,40]).range([cx*pentaScale,cx*pentaScale+58*pentaScale])
+var scale3y = d3.scaleLinear().domain([0,40]).range([cy*pentaScale,cy*pentaScale+85*pentaScale])
+var scale4x = d3.scaleLinear().domain([0,40]).range([cx*pentaScale,cx*pentaScale-59*pentaScale])
+var scale4y = d3.scaleLinear().domain([0,40]).range([cy*pentaScale,cy*pentaScale+85*pentaScale])
+var scale5x = d3.scaleLinear().domain([0,40]).range([cx*pentaScale,cx*pentaScale-96*pentaScale])
+var scale5y = d3.scaleLinear().domain([0,40]).range([cy*pentaScale,cy*pentaScale-26*pentaScale])
+var lamda = d3.scaleLinear()
+    .domain([0, 600])
+    .range([-180, 180]);
+
+
+canvas.append("polygon")
+  .attr("id","personality_pentagon")
+  .attr("points", scale1x(pt1) + "," + scale1y(pt1) + " " +
+          scale2x(pt2) +"," + scale2y(pt2) + " " +
+          scale3x(pt3) +"," + scale3y(pt3) + " " +
+          scale4x(pt4) +"," + scale4y(pt4) + " " +
+          scale5x(pt5) +"," + scale5y(pt5)
+        )
+   .style("fill", "black")
+   // .style("stroke", "black")
+   // .style("strokeWidth", "10px")
+   .style("opacity",0.5)
+
+
+   canvas.append("circle")
+     .attr("cx",160*pentaScale)
+     .attr("cy",170*pentaScale)
+     .attr("r",3)
+     // .style("stroke","black")
+     .style("strokeWidth","10px")
+     .style("fill","white")
+
+
+  </script>
+<hr>
+  <div class="trait">
+    <svg id="traits_red"></svg>
+    <p class="topic">Extroversion (E):</p>
+    <p class="topic2">Outgoing & Energetic</p>
+    <p class="message"> High scorers: </br> tend to be very social</p>
+    <p class="message"> Low scorers: </br> tend to work on their projects alone</p>
+  </div>
+
+  <div class="trait">
+    <svg id="traits_yellow"></svg>
+    <p class="topic">Openness(O):</p>
+    <p class="topic2">Inventive & Curious</p>
+    <p class="message"> High scores:</br> tend to do day dream a lot </p>
+    <p class="message"> Low scorers:</br> tend to be very down to earth</p>
+  </div>
+
+  <div class="trait">
+    <svg id="traits_green"></svg>
+    <p class="topic">Agreeableness(A):</p>
+    <p class="topic2">Friendly & Compassionate</p>
+    <p class="message">High scorers:</br> tend to be polite and like people </p>
+    <p class="message">Low scorers: </br>tend to 'tell it like it is'</p>
+  </div>
+
+  <div class="trait">
+    <svg id="traits_blue"></svg>
+    <p class="topic">Conscientiousness(C):</p>
+    <p class="topic2">Efficient & Organized</p>
+    <p class="message"> High scorers:</br> tend to follow rules and prefer clean homes</p>
+    <p class="message"> Low scorers:</br> tend to be messy and cheat others</p>
+  </div>
+
+  <div class="trait">
+    <svg id="traits_emm"></svg>
+  <p class="topic">Neuroticism(N):</p>
+  <p class="topic2">Sensitive & Nervous</p>
+  <p class="message"> High scorers:</br> tend to be sensitive and emotional</p>
+  <p class="message"> Low scorers:</br> tend to be calm and rational</p>
+  </div>
+
+      <script src="Red.js"></script>
+      <script src="Yellow.js"></script>
+      <script src="Green.js"></script>
+      <script src="Blue.js"></script>
+      <script src="Emm.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+---
+title: "pData"
+author: "Yanfei Yu"
+date: "4/8/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Desktop/info3300_dataV/info3300-spr2018/proj2/personality_map")
+library(readr)
+library(tidyverse)
+pData <- read_delim("data.csv", "\t", escape_double = FALSE, na = "0", 
+    trim_ws = TRUE)
+country_region <- read_csv("all.csv")
+pData <- merge(pData,country_region)
+```
+
+## R pre-processing the data
+
+```{r mutate}
+np <- as.data.frame(pData)
+np$age <- as.numeric(np$age)
+
+nnp<- np %>%
+  filter( age<=100 & age >= 13, gender == 1 || gender == 2, country!= "0") %>%
+  mutate(E = 20+E1-E2+E3-E4+E5-E6+E7-E8+E9-E10, 
+         N = 38-N1+N2-N3+N4-N5-N6-N7-N8-N9-N10,
+         A = 14-A1+A2-A3+A4-A5+A6-A7+A8+A9+A10,
+         C = 14+C1-C2+C3-C4+C5-C6+C7-C8+C9+C10,
+         O = 8 +O1-O2+O3-O4+O5-O6+O7+O8+O9+O10
+         ) #for each dimension, the scores calculated should be between 0 and 40
+
+np1 <- nnp %>%
+  select(age, gender,country,E,N,A,C,O,c_name, region, sub_region = 'sub-region',country_code='country-code')
+
+np1 <- np1 %>%
+  na.omit(np1) %>% # omit rows with "NA" in any of the columns
+  group_by(country) %>%
+  filter(n()>10)
+
+gb_age_country <- np1 %>%
+  mutate(ageGroup = cut(age, breaks = c(12,20,30,Inf),
+                        labels = c("13-20","21-30","31-100")))%>%
+  group_by(country, country_code, ageGroup) %>%
+  summarise(meanE = mean(E), meanN = mean(N), meanA = mean(A), meanC = mean(C), meanO = mean(O), count=n())
+
+gb_region <- np1 %>%
+  group_by(region) %>%
+  summarise(meanE = mean(E), meanN = mean(N), meanA = mean(A), meanC = mean(C), meanO = mean(O),count=n())
+
+hist(np1$age, xlim = c(0,100)) #create a histogram for age
+
+write.csv(np1, file="np1.csv",
+          row.names=FALSE)
+write.csv(gb_age_country, file="age_country.csv",
+          row.names=FALSE)
+write.csv(gb_region, file="region.csv",
+          row.names=FALSE)
+```
+
+
+## Including Plots
+
+```{r pressure, echo=FALSE}
+np1 %>%
+  group_by(country) %>%
+  filter(n()>10) %>%
+  summarise(count=n())
+
+library(jsonlite)
+# country_region %>%
+#   select(country, country_code = toString('country-code'),region) %>%
+#   mutate(n_contry_code = 
+#            ifelse(length(country_code)==1,paste("00",country_code),
+#          ifelse(length(country_code)==2,paste("0",country_code),country_code)))
+#   select(contry_code,region) %>%
+#   toJSON()
+  
+country_region %>%
+  select(country, country_code = toString('country-code'),region) %>%
+  filter(!is.na(region)) %>%
+  mutate(n_country_code = sprintf("%03s", country_code)) %>%
+  select(n_country_code,region) %>%
+  toJSON()
+```
