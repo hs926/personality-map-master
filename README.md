@@ -28,11 +28,15 @@ Section1:<br>
 We start with a simple description of what the audience can get from our data visualization. They can learn the basic personalities of each country based on the data set we found. They also can learn the personalities of three age groups (<20),(20­30),(>30) of each country.
 
 We made a globe that can spin automatically to attract users to interact with it. Users can see the country’s name and click on any country they would like to know more about. In the meantime, the pentagon will change shape relative to the five personalities. We also made three figures to visually show the different age groups. After the portraits are clicked, the pentagon will change shape accordingly. We feel the pentagon is more fun and interactive than bar charts in showing the personalities.
+
 ![img](https://github.com/hs926/personality-map-master/raw/master/image/section1.gif)
 
 Section2:<br>
 In the end, we want users to better know the five personalities we showed in our pentagon. We use different colors, movements and speed to express the feeling behind the specific personality. For example, Extroversion (E) means outgoing and energetic. We use hot red, large spin diameter and fast speed to express the meaning of extroversion. For Neuroticism(N), which means sensitive and nervous, we pick yellow based on the research related to colors and emotions published by Naz Kaya, Avery Gilbert, Alan Fridlund, and Laurie Lucchina. We use intense movement and tiny diameter to express the feeling of being sensitive and nervous. After users have a better understanding of each personality, they can go back and feel the differences between countries and age groups. They can feel the cultural differences through our simple data visualization.
+
 ![img](https://github.com/hs926/personality-map-master/raw/master/image/section2.gif)
+
+
 References<br>
 globe inspired from http://bl.ocks.org/KoGor/5994804 <br>
 pentagon coordinates inspired from https://bl.ocks.org/curran/8b4b7791fc25cfd2c459e74f3d0423f2 <br>
